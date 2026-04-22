@@ -2,6 +2,7 @@ services:
   voltswitch-api:
     image: ghcr.io/nayetdet/voltswitch-api:latest
     container_name: voltswitch-api
+    pull_policy: always
     privileged: true
     ports:
       - "3939:8000"
