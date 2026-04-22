@@ -13,11 +13,10 @@ func main() {
 	})
 
 	server.POST("/shutdown", func(ctx *gin.Context) {
-		output, err := exec.Command("shutdown", "-h", "now").CombinedOutput()
+		err := exec.Command("poweroff").Run()
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"output": string(output),
-				"error":  err.Error(),
+				"error": err.Error(),
 			})
 
 			return
