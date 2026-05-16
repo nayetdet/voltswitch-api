@@ -34,8 +34,16 @@ SHUTDOWN_COMMAND="nsenter --target 1 --mount --uts --ipc --net --pid poweroff"
 
 Defina `SHUTDOWN_COMMAND` no seu ambiente ou em `.env` antes de subir o container.
 
+Para desligar via `nsenter`:
+
 ```bash
-docker compose up -d
+docker compose -f docker-compose.passthrough.yml up -d
+```
+
+Para desligar via SSH:
+
+```bash
+docker compose -f docker-compose.ssh.yml up -d
 ```
 
 O serviço fica disponivel em:
@@ -44,7 +52,7 @@ O serviço fica disponivel em:
 http://localhost:3939
 ```
 
-O `docker-compose.yml` publica a porta `8000` do container como `3939` no host.
+Os arquivos `docker-compose.*.yml` publicam a porta `8000` do container como `3939` no host.
 
 ### Sem Docker
 

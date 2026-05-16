@@ -1,0 +1,12 @@
+services:
+  voltswitch-api:
+    image: ghcr.io/nayetdet/voltswitch-api:latest
+    container_name: voltswitch-api
+    pull_policy: always
+    environment:
+      SHUTDOWN_COMMAND: "${SHUTDOWN_COMMAND:?err}"
+    ports:
+      - "3939:8000"
+    volumes:
+      - ~/.ssh:/root/.ssh:ro
+    restart: unless-stopped

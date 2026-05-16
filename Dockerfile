@@ -10,7 +10,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/voltswi
 FROM alpine:3.22
 ENV PATH="/sbin:/usr/sbin:/usr/local/sbin:$PATH"
 
-RUN apk add --no-cache util-linux
+RUN apk add --no-cache util-linux openssh-client
 COPY --from=build /out/voltswitch-api /usr/local/bin/voltswitch-api
 
 WORKDIR /app
