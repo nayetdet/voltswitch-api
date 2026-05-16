@@ -2,33 +2,62 @@
 
 API HTTP simples para desligar o host onde o container esta rodando.
 
-O projeto expoe um endpoint que executa `poweroff` no namespace do host usando `nsenter`. Por isso, ele foi pensado para rodar em container com `pid: host` e modo privilegiado.
+O endpoint `POST /shutdown` executa o comando definido em `SHUTDOWN_COMMAND`. O valor esperado e o comando completo, por exemplo:
+
+```bash
+nsenter --target 1 --mount --uts --ipc --net --pid poweroff
+```
+
+O arquivo [`.env.example`](.env.example) traz o valor padrao usado hoje. Crie um `.env` a partir dele quando quiser sobrescrever a configuracao local.
 
 ## Requisitos
 
 - Docker e Docker Compose
 - Host Linux com `poweroff`
-- Permissao para executar containers privilegiados
+- Permissao para rodar container privilegiado
 
-Para desenvolvimento local sem Docker:
+## Configuracao
 
-- Go 1.26.2
+Variavel de ambiente usada pela aplicacao:
+
+- `SHUTDOWN_COMMAND`: comando completo executado no shutdown
+
+Exemplo de `.env`:
+
+```bash
+SHUTDOWN_COMMAND="nsenter --target 1 --mount --uts --ipc --net --pid poweroff"
+```
 
 ## Como executar
 
-Com Docker Compose:
+### Com Docker Compose
+
+Defina `SHUTDOWN_COMMAND` no seu ambiente ou em `.env` antes de subir o container.
 
 ```bash
 docker compose up -d
 ```
 
-O servico fica disponivel em:
+O serviço fica disponivel em:
 
 ```text
 http://localhost:3939
 ```
 
-O container escuta na porta `8000`, e o `docker-compose.yml` publica essa porta como `3939` no host.
+O `docker-compose.yml` publica a porta `8000` do container como `3939` no host.
+
+### Sem Docker
+
+```bash
+go mod download
+go run .
+```
+
+Nesse modo, a API escuta em:
+
+```text
+http://localhost:8000
+```
 
 ## Endpoints
 
@@ -66,27 +95,6 @@ Resposta em caso de erro:
 }
 ```
 
-## Desenvolvimento
-
-Instale as dependencias e rode a API localmente:
-
-```bash
-go mod download
-go run .
-```
-
-A API local escuta em:
-
-```text
-http://localhost:8000
-```
-
-Build local:
-
-```bash
-go build -o voltswitch-api .
-```
-
 ## Docker
 
 Build da imagem:
@@ -103,6 +111,7 @@ docker run -d \
   --pid host \
   --privileged \
   -p 3939:8000 \
+  -e SHUTDOWN_COMMAND="nsenter --target 1 --mount --uts --ipc --net --pid poweroff" \
   voltswitch-api
 ```
 

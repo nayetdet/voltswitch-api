@@ -3,6 +3,8 @@ services:
     image: ghcr.io/nayetdet/voltswitch-api:latest
     container_name: voltswitch-api
     pull_policy: always
+    environment:
+      SHUTDOWN_COMMAND: "${SHUTDOWN_COMMAND:?err}"
     pid: host
     privileged: true
     ports:

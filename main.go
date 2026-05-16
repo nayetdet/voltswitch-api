@@ -2,7 +2,10 @@ package main
 
 import (
 	"net/http"
+	"os"
 	"os/exec"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,7 +16,17 @@ func main() {
 	})
 
 	server.POST("/shutdown", func(ctx *gin.Context) {
-		err := exec.Command("nsenter", "--target", "1", "--mount", "--uts", "--ipc", "--net", "--pid", "poweroff").Run()
+		command := strings.TrimSpace(os.Getenv("SHUTDOWN_COMMAND"))
+		if command == "" {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "SHUTDOWN_COMMAND environment variable is not set",
+			})
+
+			return
+		}
+
+		commandParts := strings.Fields(command)
+		err := exec.Command(commandParts[0], commandParts[1:]...).Run()
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
