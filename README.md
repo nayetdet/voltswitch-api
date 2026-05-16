@@ -1,70 +1,96 @@
 # voltswitch-api
 
-API HTTP simples para desligar o host onde o container esta rodando.
+API HTTP simples para desligar o host onde o container está rodando.
 
-O endpoint `POST /shutdown` executa o comando definido em `SHUTDOWN_COMMAND`. O valor esperado e o comando completo, por exemplo:
+O serviço expõe dois endpoints:
 
-```bash
-nsenter --target 1 --mount --uts --ipc --net --pid poweroff
-```
+- `GET /` para health check
+- `POST /shutdown` para executar o comando de desligamento definido em `SHUTDOWN_COMMAND`
 
-O arquivo [`.env.example`](.env.example) traz o valor padrao usado hoje. Crie um `.env` a partir dele quando quiser sobrescrever a configuracao local.
+O código da API está em [`main.go`](main.go) e escuta em `:8000`.
 
 ## Requisitos
 
-- Docker e Docker Compose
-- Host Linux com `poweroff`
-- Permissao para rodar container privilegiado
+- Go `1.26.2` para execução local
+- Docker e Docker Compose para execução em container
+- Host Linux com o comando de desligamento disponível
+- Permissão para rodar o container em modo privilegiado, quando usar a imagem com `pid: host`
 
-## Configuracao
+## Configuração
 
-Variavel de ambiente usada pela aplicacao:
+A aplicação depende da variável de ambiente `SHUTDOWN_COMMAND`.
 
-- `SHUTDOWN_COMMAND`: comando completo executado no shutdown
-
-Exemplo de `.env`:
+Exemplo:
 
 ```bash
 SHUTDOWN_COMMAND="nsenter --target 1 --mount --uts --ipc --net --pid poweroff"
 ```
 
+O valor é executado diretamente pelo processo, então passe o comando completo e evite depender de parsing avançado de shell.
+
 ## Como executar
 
-### Com Docker Compose
-
-Defina `SHUTDOWN_COMMAND` no seu ambiente ou em `.env` antes de subir o container.
-
-Para desligar via `nsenter`:
+### Localmente
 
 ```bash
-docker compose -f docker-compose.passthrough.yml up -d
-```
-
-Para desligar via SSH:
-
-```bash
-docker compose -f docker-compose.ssh.yml up -d
-```
-
-O serviço fica disponivel em:
-
-```text
-http://localhost:3939
-```
-
-Os arquivos `docker-compose.*.yml` publicam a porta `8000` do container como `3939` no host.
-
-### Sem Docker
-
-```bash
+export SHUTDOWN_COMMAND="nsenter --target 1 --mount --uts --ipc --net --pid poweroff"
 go mod download
 go run .
 ```
 
-Nesse modo, a API escuta em:
+A API fica disponível em:
 
 ```text
 http://localhost:8000
+```
+
+### Com Docker
+
+Build da imagem:
+
+```bash
+docker build -t voltswitch-api .
+```
+
+Execução manual:
+
+```bash
+docker run -d \
+  --name voltswitch-api \
+  --pid host \
+  --privileged \
+  -p 8000:8000 \
+  -e SHUTDOWN_COMMAND="nsenter --target 1 --mount --uts --ipc --net --pid poweroff" \
+  voltswitch-api
+```
+
+Esse exemplo usa `nsenter`, então precisa de `--pid host` e `--privileged` para alcançar o PID 1 do host.
+
+### Com Docker Compose
+
+O repositório inclui dois arquivos:
+
+- [`docker-compose.passthrough.yml`](docker-compose.passthrough.yml): usa `pid: host` e `privileged: true`
+- [`docker-compose.ssh.yml`](docker-compose.ssh.yml): monta `~/.ssh` e parte do pressuposto de acesso por SSH
+
+Em ambos os casos, defina `SHUTDOWN_COMMAND` no ambiente antes de subir o serviço:
+
+```bash
+export SHUTDOWN_COMMAND="nsenter --target 1 --mount --uts --ipc --net --pid poweroff"
+docker compose -f docker-compose.passthrough.yml up -d
+```
+
+ou:
+
+```bash
+export SHUTDOWN_COMMAND="ssh user@host poweroff"
+docker compose -f docker-compose.ssh.yml up -d
+```
+
+Os Compose expõem a porta `8000` do container como `3939` no host.
+
+```text
+http://localhost:3939
 ```
 
 ## Endpoints
@@ -81,7 +107,7 @@ Resposta:
 
 ### `POST /shutdown`
 
-Desliga o host.
+Executa o comando configurado em `SHUTDOWN_COMMAND` e tenta desligar o host.
 
 Exemplo:
 
@@ -89,13 +115,13 @@ Exemplo:
 curl -X POST http://localhost:3939/shutdown
 ```
 
-Resposta em caso de sucesso:
+Resposta de sucesso:
 
 ```http
 204 No Content
 ```
 
-Resposta em caso de erro:
+Resposta de erro:
 
 ```json
 {
@@ -103,32 +129,18 @@ Resposta em caso de erro:
 }
 ```
 
-## Docker
+## Observações
 
-Build da imagem:
+- `SHUTDOWN_COMMAND` é obrigatório; sem ele a API responde `500`.
+- O comando é dividido por espaços antes de ser executado.
+- A imagem runtime instala `util-linux` e `openssh-client`, o que cobre os cenários documentados aqui.
 
-```bash
-docker build -t voltswitch-api .
-```
+## Segurança
 
-Execucao manual equivalente ao Compose:
+Esta API permite desligar a máquina host. Não exponha esse serviço diretamente na internet.
 
-```bash
-docker run -d \
-  --name voltswitch-api \
-  --pid host \
-  --privileged \
-  -p 3939:8000 \
-  -e SHUTDOWN_COMMAND="nsenter --target 1 --mount --uts --ipc --net --pid poweroff" \
-  voltswitch-api
-```
-
-## Seguranca
-
-Esta API permite desligar a maquina host. Nao exponha esse servico diretamente na internet.
-
-Recomendacoes:
+Recomendações:
 
 - Restrinja o acesso por firewall, rede privada ou proxy autenticado.
-- Publique a porta apenas em interfaces confiaveis quando possivel.
-- Use com cuidado em ambientes compartilhados ou de producao.
+- Publique a porta apenas em interfaces confiáveis quando possível.
+- Use com cuidado em ambientes compartilhados ou de produção.
