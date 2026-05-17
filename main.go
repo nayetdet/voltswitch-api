@@ -25,9 +25,7 @@ func main() {
 			return
 		}
 
-		commandParts := strings.Fields(command)
-		err := exec.Command(commandParts[0], commandParts[1:]...).Run()
-		if err != nil {
+		if err := exec.Command("sh", "-c", command).Run(); err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
 			})

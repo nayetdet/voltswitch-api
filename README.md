@@ -26,7 +26,7 @@ Exemplo:
 SHUTDOWN_COMMAND="nsenter --target 1 --mount --uts --ipc --net --pid poweroff"
 ```
 
-O valor é executado diretamente pelo processo, então passe o comando completo e evite depender de parsing avançado de shell.
+O valor é executado via `sh -c`, então aspas e redirecionamentos do shell funcionam como esperado.
 
 ## Como executar
 
