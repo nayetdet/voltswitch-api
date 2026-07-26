@@ -1,0 +1,6 @@
+apiVersion: v2
+name: voltswitch-api
+description: API for the Voltswitch project that allows turning a computer on and off remotely over the local network.
+type: application
+version: 0.1.0
+appVersion: "latest"

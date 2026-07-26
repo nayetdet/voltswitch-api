@@ -36,7 +36,7 @@ func main() {
 		ctx.JSON(http.StatusNoContent, nil)
 	})
 
-	if err := server.Run(":8000"); err != nil {
+	if err := server.Run(":3939"); err != nil {
 		panic(err)
 	}
 }

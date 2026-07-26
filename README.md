@@ -1,36 +1,36 @@
-# voltswitch-api
+# Voltswitch API
 
-API HTTP simples para desligar o host onde o container está rodando.
+API for the Voltswitch project that allows turning a computer on and off remotely over the local network.
 
-O serviço expõe dois endpoints:
+The service exposes two endpoints:
 
-- `GET /` para health check
-- `POST /shutdown` para executar o comando de desligamento definido em `SHUTDOWN_COMMAND`
+- `GET /` for a health check
+- `POST /shutdown` to execute the shutdown command defined by `SHUTDOWN_COMMAND`
 
-O código da API está em [`main.go`](main.go) e escuta em `:8000`.
+The API code is in [`main.go`](main.go) and listens on `:3939`.
 
-## Requisitos
+## Requirements
 
-- Go `1.26.2` para execução local
-- Docker e Docker Compose para execução em container
-- Host Linux com o comando de desligamento disponível
-- Permissão para rodar o container em modo privilegiado, quando usar a imagem com `pid: host`
+- Go for local execution
+- Docker and Docker Compose for container execution
+- A Linux host with an available shutdown command
+- Permission to run the container in privileged mode when using the `pid: host` image configuration
 
-## Configuração
+## Configuration
 
-A aplicação depende da variável de ambiente `SHUTDOWN_COMMAND`.
+The application requires the `SHUTDOWN_COMMAND` environment variable.
 
-Exemplo:
+Example:
 
 ```bash
 SHUTDOWN_COMMAND="nsenter --target 1 --mount --uts --ipc --net --pid poweroff"
 ```
 
-O valor é executado via `sh -c`, então aspas e redirecionamentos do shell funcionam como esperado.
+The value is executed through `sh -c`, so shell quotes and redirections are supported.
 
-## Como executar
+## Running
 
-### Localmente
+### Locally
 
 ```bash
 export SHUTDOWN_COMMAND="nsenter --target 1 --mount --uts --ipc --net --pid poweroff"
@@ -38,68 +38,117 @@ go mod download
 go run .
 ```
 
-A API fica disponível em:
+The API is available at:
 
 ```text
-http://localhost:8000
+http://localhost:3939
 ```
 
-### Com Docker
+### With Docker
 
-Build da imagem:
+Build the image:
 
 ```bash
 docker build -t voltswitch-api .
 ```
 
-Execução manual:
+Run it manually:
 
 ```bash
 docker run -d \
   --name voltswitch-api \
   --pid host \
   --privileged \
-  -p 8000:8000 \
+  -p 3939:3939 \
   -e SHUTDOWN_COMMAND="nsenter --target 1 --mount --uts --ipc --net --pid poweroff" \
   voltswitch-api
 ```
 
-Esse exemplo usa `nsenter`, então precisa de `--pid host` e `--privileged` para alcançar o PID 1 do host.
+This example uses `nsenter`, so it requires `--pid host` and `--privileged` to reach the host's PID 1. The API is available at `http://localhost:3939`.
 
-### Com Docker Compose
+### With Docker Compose
 
-O repositório inclui dois arquivos:
+The repository includes two Compose files:
 
-- [`docker-compose.passthrough.yml`](docker-compose.passthrough.yml): usa `pid: host` e `privileged: true`
-- [`docker-compose.ssh.yml`](docker-compose.ssh.yml): monta `~/.ssh` e parte do pressuposto de acesso por SSH
+- [`docker-compose.passthrough.yml`](docker-compose.passthrough.yml): uses `pid: host` and `privileged: true`
+- [`docker-compose.ssh.yml`](docker-compose.ssh.yml): mounts `~/.ssh` and assumes SSH access to the target host
 
-Em ambos os casos, defina `SHUTDOWN_COMMAND` no ambiente antes de subir o serviço:
+In both cases, set `SHUTDOWN_COMMAND` in the environment before starting the service:
 
 ```bash
 export SHUTDOWN_COMMAND="nsenter --target 1 --mount --uts --ipc --net --pid poweroff"
 docker compose -f docker-compose.passthrough.yml up -d
 ```
 
-ou:
+Or:
 
 ```bash
 export SHUTDOWN_COMMAND="ssh user@host poweroff"
 docker compose -f docker-compose.ssh.yml up -d
 ```
 
-Os Compose expõem a porta `8000` do container como `3939` no host.
+The Compose files expose the container's port `3939` as port `3939` on the host.
 
 ```text
 http://localhost:3939
+```
+
+### Helm
+
+The chart in [`k8s/voltswitch-api`](k8s/voltswitch-api) reproduces the SSH Compose setup:
+
+- `Service` on port `3939`, forwarding to the API's port `3939`
+- Optional `Ingress` for exposing the API through a local hostname
+- Configurable `SHUTDOWN_COMMAND`
+- `SSH_PRIVATE_KEY` mounted at `/root/.ssh/id_ed25519` as read-only
+- `SSH_KNOWN_HOSTS` mounted at `/root/.ssh/known_hosts` as read-only
+
+By default, the chart synchronizes the SSH credentials through an `ExternalSecret`. The remote Secret must expose `SSH_PRIVATE_KEY` and `SSH_KNOWN_HOSTS`, which are mounted at `/root/.ssh/id_ed25519` and `/root/.ssh/known_hosts`.
+
+Install it with:
+
+```bash
+helm upgrade --install voltswitch-api ./k8s/voltswitch-api \
+  --set shutdownCommand="ssh user@host poweroff" \
+  --set externalSecret.storeName="cluster-secret-store"
+```
+
+To use an existing Kubernetes Secret instead, create it with:
+
+```bash
+kubectl create secret generic voltswitch-api \
+  --from-file=SSH_PRIVATE_KEY="$HOME/.ssh/id_ed25519" \
+  --from-file=SSH_KNOWN_HOSTS="$HOME/.ssh/known_hosts"
+```
+
+Then install the chart with ExternalSecret disabled:
+
+```bash
+helm upgrade --install voltswitch-api ./k8s/voltswitch-api \
+  --set shutdownCommand="ssh user@host poweroff" \
+  --set secret.enabled=true \
+  --set externalSecret.enabled=false
+```
+
+The `SSH_PRIVATE_KEY` and `SSH_KNOWN_HOSTS` Secret entries are mounted as `/root/.ssh/id_ed25519` and `/root/.ssh/known_hosts` with read-only permissions.
+
+To enable the Ingress, configure a hostname and an Ingress Controller in your cluster:
+
+```bash
+helm upgrade --install voltswitch-api ./k8s/voltswitch-api \
+  --set shutdownCommand="ssh user@host poweroff" \
+  --set ingress.enabled=true \
+  --set 'ingress.hosts[0].host=voltswitch-api.local' \
+  --set 'ingress.hosts[0].paths[0].path=/'
 ```
 
 ## Endpoints
 
 ### `GET /`
 
-Health check simples.
+Simple health check.
 
-Resposta:
+Response:
 
 ```http
 204 No Content
@@ -107,40 +156,40 @@ Resposta:
 
 ### `POST /shutdown`
 
-Executa o comando configurado em `SHUTDOWN_COMMAND` e tenta desligar o host.
+Executes the command configured in `SHUTDOWN_COMMAND` and attempts to shut down the host.
 
-Exemplo:
+Example:
 
 ```bash
 curl -X POST http://localhost:3939/shutdown
 ```
 
-Resposta de sucesso:
+Successful response:
 
 ```http
 204 No Content
 ```
 
-Resposta de erro:
+Error response:
 
 ```json
 {
-  "error": "mensagem do erro"
+  "error": "error message"
 }
 ```
 
-## Observações
+## Notes
 
-- `SHUTDOWN_COMMAND` é obrigatório; sem ele a API responde `500`.
-- O comando é dividido por espaços antes de ser executado.
-- A imagem runtime instala `util-linux` e `openssh-client`, o que cobre os cenários documentados aqui.
+- `SHUTDOWN_COMMAND` is required; without it, the API returns `500`.
+- The command is split by the shell before execution.
+- The runtime image installs `util-linux` and `openssh-client`, covering the scenarios documented here.
 
-## Segurança
+## Security
 
-Esta API permite desligar a máquina host. Não exponha esse serviço diretamente na internet.
+This API can shut down the host machine. Do not expose it directly to the internet.
 
-Recomendações:
+Recommendations:
 
-- Restrinja o acesso por firewall, rede privada ou proxy autenticado.
-- Publique a porta apenas em interfaces confiáveis quando possível.
-- Use com cuidado em ambientes compartilhados ou de produção.
+- Restrict access using a firewall, private network, or authenticated proxy.
+- Publish the port only on trusted interfaces whenever possible.
+- Use it carefully in shared or production environments.

@@ -8,5 +8,5 @@ services:
     pid: host
     privileged: true
     ports:
-      - "3939:8000"
+      - "3939:3939"
     restart: unless-stopped

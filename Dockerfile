@@ -14,5 +14,5 @@ RUN apk add --no-cache util-linux openssh-client
 COPY --from=build /out/voltswitch-api /usr/local/bin/voltswitch-api
 
 WORKDIR /app
-EXPOSE 8000
+EXPOSE 3939
 ENTRYPOINT ["voltswitch-api"]

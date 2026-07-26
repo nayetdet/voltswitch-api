@@ -1,0 +1,55 @@
+{{- include "voltswitch-api.validateSecretsConfig" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Release.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Release.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+    spec:
+      containers:
+        - name: {{ .Release.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: SHUTDOWN_COMMAND
+              value: {{ required "shutdownCommand is required" .Values.shutdownCommand | quote }}
+          ports:
+            - name: http
+              containerPort: 3939
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          volumeMounts:
+            - name: ssh
+              mountPath: /root/.ssh
+              readOnly: true
+      volumes:
+        - name: ssh
+          secret:
+            secretName: {{ required "secret.name is required" .Values.secret.name | quote }}
+            defaultMode: 0400
+            items:
+              - key: SSH_PRIVATE_KEY
+                path: id_ed25519
+              - key: SSH_KNOWN_HOSTS
+                path: known_hosts

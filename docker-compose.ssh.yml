@@ -6,7 +6,7 @@ services:
     environment:
       SHUTDOWN_COMMAND: "${SHUTDOWN_COMMAND:?err}"
     ports:
-      - "3939:8000"
+      - "3939:3939"
     volumes:
       - ~/.ssh:/root/.ssh:ro
     restart: unless-stopped
