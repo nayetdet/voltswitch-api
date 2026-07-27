@@ -142,6 +142,32 @@ helm upgrade --install voltswitch-api ./k8s/voltswitch-api \
   --set 'ingress.hosts[0].paths[0].path=/'
 ```
 
+For TLS with Traefik and cert-manager, configure the Ingress values like this:
+
+```yaml
+ingress:
+  enabled: true
+  ingressClassName: traefik
+  annotations:
+    cert-manager.io/cluster-issuer: home-ca
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+  hosts:
+    - pihole.home.arpa
+  tls:
+    - secretName: pihole-tls
+      hosts:
+        - pihole.home.arpa
+```
+
+Hosts can also use the existing object format when custom paths are needed:
+
+```yaml
+hosts:
+  - host: voltswitch-api.home.arpa
+    paths:
+      - path: /
+```
+
 ## Endpoints
 
 ### `GET /`

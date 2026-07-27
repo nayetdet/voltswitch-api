@@ -7,15 +7,30 @@ metadata:
     app.kubernetes.io/name: {{ .Release.Name }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
+  {{- with .Values.ingress.ingressClassName }}
+  ingressClassName: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   rules:
     {{- range .Values.ingress.hosts }}
-    - {{- with .host }}
-      host: {{ . | quote }}
-      {{- end }}
+    - host: {{- if kindIs "string" . }} {{ . | quote }}{{ else }} {{ .host | quote }}{{ end }}
       http:
         paths:
-          {{- range .paths }}
+          {{- $paths := (list (dict "path" "/")) }}
+          {{- if kindIs "map" . }}
+          {{- with .paths }}
+          {{- $paths = . }}
+          {{- end }}
+          {{- end }}
+          {{- range $paths }}
           - path: {{ .path }}
             pathType: Prefix
             backend:
